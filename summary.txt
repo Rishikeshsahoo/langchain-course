@@ -1,0 +1,5 @@
+Hello! As your summary agent, I'm ready to assist.
+
+However, it seems the data you intended to provide for summarization is missing from your request.
+
+Please provide the text, document, or information you'd like me to summarize. Once you do, I'll be happy to generate a concise summary for you!
