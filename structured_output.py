@@ -7,9 +7,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda
 from prompts import main_prompt
 from schema import AgentResponse
-from langchain_core.output_parsers.pydantic import PydanticOutputParser
-# the pydantic ouput parser is a class, that parses the output of a chain into a pydantic model object
-# it assumes the output from the llm to be  in a json format which suits the pydntic class
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -20,21 +18,21 @@ llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
     temperature=0
 )
-output_parser= PydanticOutputParser( pydantic_object=AgentResponse)
+structured_llm= llm.with_structured_output(AgentResponse)
+
 react_prompt_with_format_instructions= PromptTemplate(
     template=main_prompt, 
     input_variables=["input", "agent_scratchpad", "tool_names"]
-    ).partial(format_instructions= output_parser.get_format_instructions())
+    ).partial(format_instructions= "")
 
 
 
 agent= create_react_agent(llm=llm, tools=tools, prompt=react_prompt_with_format_instructions)
 agent_executor= AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
 fetch_output= RunnableLambda(lambda x: x["output"])
-parse_json_output= RunnableLambda(lambda x:output_parser.parse(x))
 
 
-chain= agent_executor | fetch_output | parse_json_output
+chain= agent_executor | fetch_output | structured_llm
 def main():
     result= chain.invoke(input={"input": "What are the latest news about AI in the world"})
     print(result)
