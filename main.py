@@ -1,74 +1,100 @@
-from typing import List
-
-from dotenv import load_dotenv
-from langchain.tools import tool
-from langchain_core.tools import Tool
-from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
+import os
+from operator import itemgetter
+from langchain_google_genai.embeddings import GoogleGenerativeAIEmbeddings
 from langchain_google_genai import ChatGoogleGenerativeAI
+from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+from langchain_pinecone import PineconeVectorStore
 
 load_dotenv()
 
+prompt_template = ChatPromptTemplate.from_messages(
+    [
+        ("human", """Answer the question based on the context provided.
+    Context: {context}
 
+    Question: {question}
 
-# this is the tool decorator
-# this decorate function and make it callable by llm
-# https://docs.langchain.com/oss/python/langchain/tools
-
-def find_tool_by_name(tools:List[Tool], tool_name:str)->Tool:
-    for selected_tool in tools:
-        if selected_tool.name == tool_name:
-            return selected_tool
-    raise ValueError(f"Tool {tool_name} not found")
-
-@tool
-def get_text_length(text:str)->int:
-    """
-    Return the length of text
-    
-    Args:
-        text (str): The text to be processed
-    
-    Returns:
-        int: The length of the text
-    """
-    return len(text)
-
-
-def main():
-    tools=[get_text_length]
-
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite")
-    tool_calling_llm=llm.bind_tools(tools)
-
-    messages=[
-        SystemMessage(content="""You are a helpful AI assistant with access to tools. 
-When asked a question, use the available tools if needed to gather information.
-After using a tool, always provide a clear, natural language answer to the user's question.
-Be concise and helpful in your responses."""),
-        HumanMessage(content="What is the length of the text : Hello World")
+    Provide a detailed answer.""")
     ]
+)
 
-    while True:
-        response= tool_calling_llm.invoke(messages)
-        print("a")
-        print(response)
-        if(response.type=="ai" and response.tool_calls and len(response.tool_calls)>0):
-            messages.append(response)
-            for tool_call in response.tool_calls:
-                print("b")
-                print((tool_call))
-                tool_name=tool_call.get("name")
-                tool_args=tool_call.get("args")
-                tool_id=tool_call.get("id")
-                selected_tool= find_tool_by_name(tools, tool_name)
-                tool_result=selected_tool.invoke(tool_args)
-                messages.append(ToolMessage(content=str(tool_result), tool_call_id=tool_id))
-            continue
-            
-        messages.append(response)
-        print(response.content)
-        break
-    print(messages)
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash",
+    temperature=0.5,
+    max_retries=2,
+)
+embeddings= GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 
-if __name__ == "__main__":
-    main()
+vectorstore = PineconeVectorStore(index_name=os.getenv("INDEX_NAME"), embedding=embeddings)
+retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+def format_documents(documents):
+    return "\n".join([doc.page_content for doc in documents])
+
+
+def retrieval_chain_without_lcel(query: str):
+    """
+    Simple retrieval chain without LCEL.
+    Manually retrieves documents, formats them, and generates a response.
+
+    Limitations:
+    - Manual step-by-step execution
+    - No built-in streaming support
+    - No async support without additional code
+    - Harder to compose with other chains
+    - More verbose and error-prone
+    """
+    # step 1: retrieve documents
+    docs= retriever.invoke(query)
+    # step 2: format documents
+    formatted_docs= format_documents(docs)
+    # step 3: format prompt
+    prompt= prompt_template.format_messages(context=formatted_docs, question=query)
+    # step 4: generate response
+    response= llm.invoke(prompt)
+    return response.content
+
+
+def retrieval_chain_with_lcel():
+    # now we only need to invoke the chain with a "question"
+    # and the RunnablePassthrough.assign will add a context to the input
+    # and return a runnable that can be passed next to the chain
+    retrieval_chain= (
+        RunnablePassthrough.assign(
+            context= (lambda x: x["question"])| retriever | format_documents
+        ) |
+        prompt_template |
+        llm |
+        StrOutputParser()
+    )
+    
+    return retrieval_chain
+    
+
+if __name__== "__main__":
+    # =============without langchain expression language==============
+    print("\n"+"="*70)
+    print("Retrieval chain without LCEL")
+    print("="*70+"\n")
+    query= "what is RAG and what are the challengs in RAG ?"
+    response= retrieval_chain_without_lcel(query)
+    print("\nAnswer:")
+    print(response)
+    # =============without langchain expression language==============
+
+    # =============with langchain expression language==============
+    print("\n"+"="*70)
+    print("Retrieval chain with LCEL")
+    print("="*70+"\n")
+    retrieval_chain= retrieval_chain_with_lcel()
+    query= "what is RAG and what are the challengs in RAG ?"
+    response= retrieval_chain.invoke({"question": query})
+    print("\nAnswer:")
+    print(response)
+
+    # =======with langchain expression language=========
+    
+

@@ -1,0 +1,25 @@
+[MESSAGES CONTROL]
+# Disable the message, report, category or checker with the given id(s).
+# C0114: missing-module-docstring (Module docstring missing)
+# C0115: missing-class-docstring (Class docstring missing)
+# C0116: missing-function-docstring (Function docstring missing)
+# C0103: invalid-name (Variable name "x" doesn't conform to snake_case naming style)
+# C0301: line-too-long (Line too long)
+# R0903: too-few-public-methods (Too few public methods)
+# W0621: redefined-outer-name (Redefining name 'x' from outer scope)
+# W0718: broad-exception-caught (Catching too general exception Exception)
+disable=
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    invalid-name,
+    line-too-long,
+    too-few-public-methods,
+    redefined-outer-name,
+    broad-exception-caught,
+    fixme,
+    trailing-whitespace
+
+[FORMAT]
+# Maximum number of characters on a single line.
+max-line-length=120
