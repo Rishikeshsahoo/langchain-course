@@ -8,8 +8,9 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 @tool
 def triple(num:float) -> float:
     """
-    Multiplies the provided number by three.
-
+    This is a tool that can be used to triple a number i.e. multiple a number by 3
+    (1) Multiplies the provided number by three.
+    (2)Triples the number passed to it
     Args:
         num (float): The number to be tripled.
 
@@ -18,7 +19,7 @@ def triple(num:float) -> float:
     """
     return num * 3
 
-tools=[TavilySearch(max_results=1), triple]
+tools=[TavilySearch(max_results=2), triple]
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 
 llm_with_tools=llm.bind_tools(tools)

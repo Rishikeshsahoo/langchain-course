@@ -6,7 +6,7 @@ from langchain_core.messages import HumanMessage
 from langgraph.graph import MessagesState, StateGraph, START,END
 
 from nodes import run_agent_reasoning, tool_node
-
+from logger import log_info
 AGENT_REASON="run_agent_reasoning"
 TOOLS="tool_node"
 LAST=-1
@@ -28,3 +28,9 @@ flow.add_edge(TOOLS, AGENT_REASON)
 graph= flow.compile()
 
 graph.get_graph().draw_mermaid_png(output_file_path="flow.png")
+
+
+response=graph.invoke({"messages":[HumanMessage(content="What is the temprature in London (United Kingdom) today?, Tripple it and give me the answer!")]} )
+
+log_info(response['messages'][-1].content)
+
